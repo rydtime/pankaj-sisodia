@@ -146,6 +146,20 @@
   .qr-box svg { display: block; width: 200px; height: 200px; }
   .qr-empty { color: #55534E; font-size: 14px; text-align: center; padding: 12px; }
   .qr-caption { margin: -6px 0 0; text-align: center; font-size: 14px; color: var(--muted); }
+  .pay-label { margin: 4px 0 -4px; font-size: 14px; font-weight: 600; text-align: center; }
+  .apps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .apps a {
+    min-height: 52px; border-radius: 12px; display: grid; place-items: center; text-align: center;
+    background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 15px; padding: 6px;
+  }
+  .apps a:active { transform: scale(.98); }
+  .save-qr { font-size: 14px; color: var(--accent); text-decoration: underline; text-align: center; }
+  .same-phone {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; font-size: 14px; color: var(--muted);
+  }
+  .same-phone strong { color: var(--text); }
+  .same-phone ol { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
   .upi-row {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px 8px 8px 14px;
@@ -283,8 +297,23 @@
 
     <div class="qr-box" id="qr" role="img" aria-label="UPI QR code"></div>
     <p class="qr-caption">Scan with any UPI app — the amount is filled in</p>
+    <a class="save-qr" id="save-qr" href="#" download="pankaj-upi-qr.gif">Save QR to photos</a>
 
-    <a class="btn btn-primary" id="upi-pay" href="#">Pay ₹800 with UPI app</a>
+    <p class="pay-label" id="pay-label">Or pay ₹800 in your app</p>
+    <div class="apps">
+      <a href="#" data-app="gpay">Google Pay</a>
+      <a href="#" data-app="phonepe">PhonePe</a>
+      <a href="#" data-app="paytm">Paytm</a>
+    </div>
+
+    <div class="same-phone">
+      <strong>App not opening, or paying on this phone?</strong>
+      <ol>
+        <li>Tap <strong>Copy</strong> next to the UPI ID below</li>
+        <li>Open your UPI app → <strong>Pay to UPI ID</strong></li>
+        <li>Paste the ID and pay <strong id="same-amount">₹800</strong></li>
+      </ol>
+    </div>
 
     <div class="upi-row">
       <span>UPI ID: <strong id="upi-id">—</strong></span>
@@ -294,13 +323,9 @@
     <div class="fields" id="proof-fields">
       <div class="field">
         <label for="full-name">Full legal name <span aria-hidden="true">*</span></label>
-        <input id="full-name" name="full-name" type="text" autocomplete="name" required aria-describedby="name-error">
+        <input id="full-name" name="full-name" type="text" autocomplete="name" required aria-describedby="name-hint name-error">
+        <p class="hint" id="name-hint">Use the same name you booked with</p>
         <p class="error hidden" id="name-error">Please enter your full legal name.</p>
-      </div>
-      <div class="field">
-        <label for="client-email">Email <span aria-hidden="true">*</span></label>
-        <input id="client-email" name="client-email" type="email" autocomplete="email" inputmode="email" required aria-describedby="email-error">
-        <p class="error hidden" id="email-error">Please enter a valid email address.</p>
       </div>
       <div class="attach">
         <strong>Attach your payment screenshot to the email</strong>
@@ -312,7 +337,7 @@
       Email payment confirmation
     </a>
     <p class="note">Your email app opens with these details filled in. Add the screenshot and send. You&rsquo;ll get a confirmation reply.</p>
-    <p class="note">If the UPI app button doesn&rsquo;t open inside Instagram, scan the QR or copy the UPI ID.</p>
+    <p class="note">Inside Instagram, the app buttons may not open. Use Copy or Save QR instead.</p>
   </section>
 
   <section class="pay" id="prep" aria-labelledby="prep-title">
@@ -2062,20 +2087,31 @@ var qrcode = function() {
     document.querySelectorAll("[data-session]").forEach(function (b) {
       b.setAttribute("aria-pressed", b.dataset.session === id ? "true" : "false");
     });
-    const payBtn = document.getElementById("upi-pay");
-    payBtn.textContent = "Pay " + fmt(s.amount) + " with UPI app";
+    document.getElementById("pay-label").textContent = "Or pay " + fmt(s.amount) + " in your app";
+    document.getElementById("same-amount").textContent = fmt(s.amount);
 
     if (CONFIG.upiId) {
       const link = upiLink(s);
-      payBtn.href = link;
+      const query = link.slice(link.indexOf("?"));
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      // App-specific links, so the phone doesn't hand the payment to another app (like WhatsApp)
+      const appLinks = {
+        gpay: (isIOS ? "gpay://upi/pay" : "tez://upi/pay") + query,
+        phonepe: "phonepe://pay" + query,
+        paytm: "paytmmp://pay" + query
+      };
+      document.querySelectorAll("[data-app]").forEach(function (a) { a.href = appLinks[a.dataset.app]; });
       if (window.qrcode) {
         const q = qrcode(0, "M");
         q.addData(link);
         q.make();
         qrEl.innerHTML = q.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        const save = document.getElementById("save-qr");
+        save.href = q.createDataURL(8, 4);
+        save.download = "pankaj-upi-qr-" + s.amount + ".gif";
       }
     } else {
-      payBtn.removeAttribute("href");
       qrEl.innerHTML = '<span class="qr-empty">Your QR code appears here once the UPI ID is added</span>';
     }
 
@@ -2085,7 +2121,6 @@ var qrcode = function() {
   /* Payment confirmation email — fixed subject: Payment confirmation | <Full legal name> | <Session> | <Amount> */
   const proof = document.getElementById("send-proof");
   const nameInput = document.getElementById("full-name");
-  const emailInput = document.getElementById("client-email");
   if (!CONFIG.email) {
     proof.classList.add("hidden");
     document.getElementById("proof-fields").classList.add("hidden");
@@ -2100,11 +2135,8 @@ var qrcode = function() {
   proof.addEventListener("click", function (e) {
     e.preventDefault();
     const fullName = nameInput.value.trim().replace(/\s+/g, " ");
-    const email = emailInput.value.trim();
     const nameOk = checkField(nameInput, "name-error", fullName.length >= 3 && fullName.indexOf(" ") > 0);
-    const emailOk = checkField(emailInput, "email-error", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
     if (!nameOk) { nameInput.focus(); return; }
-    if (!emailOk) { emailInput.focus(); return; }
 
 
     const s = currentSession;
@@ -2113,7 +2145,6 @@ var qrcode = function() {
       "Hi Pankaj,\n\n" +
       "I have booked a session and completed the payment.\n\n" +
       "Full legal name: " + fullName + "\n" +
-      "Email: " + email + "\n" +
       "Session: " + s.name + "\n" +
       "Amount paid: " + fmt(s.amount) + "\n" +
       "Booked date & time: \n" +
@@ -2230,7 +2261,7 @@ var qrcode = function() {
 
   // Once they've sent the payment email, the reminder is done
   proof.addEventListener("click", function () {
-    if (nameInput.value.trim() && emailInput.value.trim()) {
+    if (nameInput.value.trim().indexOf(" ") > 0) {
       store("pendingSession", null);
       paybar.classList.add("hidden");
       document.body.classList.remove("has-paybar");
