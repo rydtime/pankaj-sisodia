@@ -180,6 +180,37 @@
   .error { margin: 0; font-size: 13px; color: #FF8A7D; }
   .note { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
 
+  /* Booking guidance */
+  .step-label {
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .after-book { margin: -4px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+  .paybar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: #1A1408; border-top: 1px solid var(--accent);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.45);
+  }
+  .paybar-inner {
+    max-width: 480px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .paybar p { margin: 0; font-size: 14px; line-height: 1.35; }
+  .paybar p strong { display: block; font-size: 16px; color: var(--accent); }
+  .paybar .btn { min-height: 48px; padding: 10px 18px; flex: none; }
+  body.has-paybar .wrap { padding-bottom: 120px; }
+
+  /* Embedded booking calendar */
+  .book-frame {
+    background: #FFFFFF; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .book-frame iframe { display: block; width: 100%; height: 720px; border: 0; }
+  .pay > .chosen { margin: 0; font-size: 15px; color: var(--text); }
+  .pay > .step-label { color: var(--accent); font-size: 12px; }
+  .chosen strong { color: var(--accent); }
+
   .hidden { display: none !important; }
 </style>
 </head>
@@ -204,7 +235,8 @@
       </div>
       <span class="duration"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 minutes · Google Meet</span>
       <p>A 30-minute one-on-one session where I analyse your profile and understand what&rsquo;s holding your career back. You leave with a clear way forward and practical recommendations for your next move.</p>
-      <a class="btn btn-primary" data-link="bookingCounselling" href="#">Book a session</a>
+      <a class="btn btn-primary" data-link="bookingCounselling" data-pick="1" href="#">Book a session</a>
+      <p class="after-book">Pick your slot, then come back here to pay and confirm</p>
     </article>
 
     <article class="service featured">
@@ -215,7 +247,8 @@
       </div>
       <span class="duration"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>45 minutes · Google Meet</span>
       <p>A 45-minute session with everything in Career Counselling, plus a resume rebuilt to industry standards. Clear structure, measurable achievements and the right keywords so recruiters and screening systems notice you, tailored to the roles you&rsquo;re targeting.</p>
-      <a class="btn btn-primary" data-link="bookingResume" href="#">Book a session</a>
+      <a class="btn btn-primary" data-link="bookingResume" data-pick="2" href="#">Book a session</a>
+      <p class="after-book">Pick your slot, then come back here to pay and confirm</p>
     </article>
   </section>
 
@@ -230,7 +263,16 @@
     </ol>
   </section>
 
+  <section class="pay hidden" id="book" aria-labelledby="book-title">
+    <p class="step-label">Step 1 · pick your slot</p>
+    <h3 id="book-title">Choose a date and time</h3>
+    <p class="chosen">Booking: <strong id="chosen-session">Career Counselling · 30 min</strong></p>
+    <div class="book-frame" id="book-frame"></div>
+    <a class="btn btn-primary" href="#pay" id="to-pay">I&rsquo;ve booked my slot — pay now</a>
+  </section>
+
   <section class="pay" id="pay" aria-labelledby="pay-title">
+    <p class="step-label">Step 2 · after booking your slot</p>
     <h3 id="pay-title">Pay to confirm your booking</h3>
     <p>Booked a slot? Pay within 2 hours to keep your slot. Unpaid bookings are cancelled.</p>
 
@@ -310,6 +352,13 @@
   </footer>
 
 </main>
+
+<div class="paybar hidden" id="paybar" role="region" aria-label="Confirm your booking">
+  <div class="paybar-inner">
+    <p><strong>Booked your slot?</strong><span id="paybar-text">Pay ₹800 to confirm it</span></p>
+    <a class="btn btn-primary" href="#pay" id="paybar-btn">Pay now</a>
+  </div>
+</div>
 
 <script>
 /* qrcode-generator 1.4.4 — MIT License, Kazuhiko Arase */
@@ -1936,6 +1985,9 @@ var qrcode = function() {
     bookingCounselling: "https://calendar.app.google/3Fn1gq39dukEX4abA",
     // Booking page link for Career Counselling + Resume (falls back to the link above)
     bookingResume: "",
+    // Website embed: the src="…" address from Google's "Website embed → Inline booking page" code.
+    // When set, the calendar shows inside this page instead of opening a new tab.
+    bookingEmbed: "https://calendar.google.com/calendar/appointments/schedules/AcZssZ0sRjmHeJHq6dm5swg-qRjbfAv1v6Br_NhIecoZfKiAEgv2BZCtwXS6c1gDJiGzMPLd-a73SnGH?gv=true",
     // Prices shown on each card — leave "" to hide a price
     priceCounselling: "₹800",
     priceResume: "₹1,500",
@@ -1987,8 +2039,8 @@ var qrcode = function() {
 
   /* ---------- Payment section ---------- */
   const SESSIONS = {
-    "1": { name: "Career Counselling", amount: CONFIG.amountCounselling },
-    "2": { name: "Career Counselling + Resume", amount: CONFIG.amountResume }
+    "1": { name: "Career Counselling", amount: CONFIG.amountCounselling, minutes: 30 },
+    "2": { name: "Career Counselling + Resume", amount: CONFIG.amountResume, minutes: 45 }
   };
   const fmt = function (n) { return "₹" + Number(n).toLocaleString("en-IN"); };
   document.getElementById("pay-price-1").textContent = fmt(SESSIONS["1"].amount);
@@ -2104,9 +2156,92 @@ var qrcode = function() {
     }
   });
 
+  /* ---------- Guide people to pay after picking a slot ---------- */
+  const paybar = document.getElementById("paybar");
+  const payBox = document.getElementById("pay");
+  let payInView = false;
+  function store(k, v) { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
+  function recall(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+
+  function showPaybar(id) {
+    const s = SESSIONS[id] || SESSIONS["1"];
+    document.getElementById("paybar-text").textContent = "Pay " + fmt(s.amount) + " to confirm it";
+    paybar.classList.toggle("hidden", payInView);
+    document.body.classList.add("has-paybar");
+  }
+
+  const embedded = !!CONFIG.bookingEmbed;
+  const bookBox = document.getElementById("book");
+
+  if (embedded) {
+    const f = document.createElement("iframe");
+    f.src = CONFIG.bookingEmbed;
+    f.title = "Pick a date and time";
+    f.loading = "lazy";
+    document.getElementById("book-frame").appendChild(f);
+    bookBox.classList.remove("hidden");
+    document.querySelectorAll(".after-book").forEach(function (n) { n.textContent = "Pick your slot below, then pay to confirm"; });
+    document.querySelectorAll("[data-pick]").forEach(function (a) {
+      a.removeAttribute("target");
+      a.href = "#book";
+    });
+  }
+
+  document.querySelectorAll("[data-pick]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      selectSession(a.dataset.pick);
+      store("pendingSession", a.dataset.pick);
+      const s = SESSIONS[a.dataset.pick];
+      document.getElementById("chosen-session").textContent = s.name + " · " + s.minutes + " min";
+      if (embedded) {
+        // Calendar is on this page: scroll to it, payment box sits right below
+        e.preventDefault();
+        bookBox.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        // Booking page opens in a new tab; show the pay reminder for when they come back
+        showPaybar(a.dataset.pick);
+      }
+    });
+  });
+
+  document.getElementById("to-pay").addEventListener("click", function (e) {
+    e.preventDefault();
+    payBox.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("paybar-btn").addEventListener("click", function (e) {
+    e.preventDefault();
+    payBox.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  // Hide the bar while the payment box itself is on screen
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      payInView = entries[0].isIntersecting;
+      if (recall("pendingSession")) paybar.classList.toggle("hidden", payInView);
+    }, { threshold: 0.15 }).observe(payBox);
+  }
+
+  // Coming back from the booking tab: show the bar again
+  document.addEventListener("visibilitychange", function () {
+    const id = recall("pendingSession");
+    if (document.visibilityState === "visible" && id && !embedded) showPaybar(id);
+  });
+
+  // Once they've sent the payment email, the reminder is done
+  proof.addEventListener("click", function () {
+    if (nameInput.value.trim() && emailInput.value.trim()) {
+      store("pendingSession", null);
+      paybar.classList.add("hidden");
+      document.body.classList.remove("has-paybar");
+    }
+  });
+
   // Links like yourpage/#pay-1 or #pay-2 open the payment box with that session selected
   const hashMatch = location.hash.match(/^#pay-([12])$/);
-  selectSession(hashMatch ? hashMatch[1] : "1");
+  const pending = recall("pendingSession");
+  selectSession(hashMatch ? hashMatch[1] : (pending || "1"));
+  if (pending && !hashMatch && !embedded) showPaybar(pending);
   if (hashMatch) document.getElementById("pay").scrollIntoView();
 </script>
 </body>
