@@ -220,7 +220,27 @@
     background: #FFFFFF; border-radius: 12px; overflow: hidden;
     border: 1px solid var(--line);
   }
-  .book-frame iframe { display: block; width: 100%; height: 720px; border: 0; }
+  .book-frame iframe { display: block; width: 100%; height: 1180px; border: 0; }
+
+  /* Full-screen payment step */
+  .sheet-close { display: none; }
+  .pay.sheet {
+    position: fixed; inset: 0; z-index: 30; margin: 0; border: 0; border-radius: 0;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+    background: var(--card);
+  }
+  .pay.sheet > * { width: 100%; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .pay.sheet .sheet-close {
+    display: flex; align-items: center; justify-content: flex-end;
+  }
+  .sheet-close button {
+    min-width: 44px; min-height: 44px; border-radius: 50%; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--line); color: var(--text);
+    display: grid; place-items: center;
+  }
+  .pay.sheet > .qr-box { width: 228px; }
+  body.sheet-open { overflow: hidden; }
   .pay > .chosen { margin: 0; font-size: 15px; color: var(--text); }
   .pay > .step-label { color: var(--accent); font-size: 12px; }
   .chosen strong { color: var(--accent); }
@@ -286,6 +306,11 @@
   </section>
 
   <section class="pay" id="pay" aria-labelledby="pay-title">
+    <div class="sheet-close">
+      <button type="button" id="close-sheet" aria-label="Close payment">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
     <p class="step-label">Step 2 · after booking your slot</p>
     <h3 id="pay-title">Pay to confirm your booking</h3>
     <p>Booked a slot? Pay within 2 hours to keep your slot. Unpaid bookings are cancelled.</p>
@@ -2235,14 +2260,32 @@ var qrcode = function() {
     });
   });
 
+  // Payment opens full screen, so the QR and app buttons are the only thing in view
+  function openPaySheet() {
+    payBox.classList.add("sheet");
+    document.body.classList.add("sheet-open");
+    paybar.classList.add("hidden");
+    payBox.scrollTop = 0;
+    document.getElementById("close-sheet").focus({ preventScroll: true });
+  }
+  function closePaySheet() {
+    payBox.classList.remove("sheet");
+    document.body.classList.remove("sheet-open");
+    if (recall("pendingSession") && !embedded) paybar.classList.remove("hidden");
+  }
+  document.getElementById("close-sheet").addEventListener("click", closePaySheet);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && payBox.classList.contains("sheet")) closePaySheet();
+  });
+
   document.getElementById("to-pay").addEventListener("click", function (e) {
     e.preventDefault();
-    payBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    openPaySheet();
   });
 
   document.getElementById("paybar-btn").addEventListener("click", function (e) {
     e.preventDefault();
-    payBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    openPaySheet();
   });
 
   // Hide the bar while the payment box itself is on screen
@@ -2273,7 +2316,7 @@ var qrcode = function() {
   const pending = recall("pendingSession");
   selectSession(hashMatch ? hashMatch[1] : (pending || "1"));
   if (pending && !hashMatch && !embedded) showPaybar(pending);
-  if (hashMatch) document.getElementById("pay").scrollIntoView();
+  if (hashMatch) openPaySheet();
 </script>
 </body>
 </html>
